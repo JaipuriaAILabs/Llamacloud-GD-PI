@@ -83,6 +83,7 @@ def make_extract_tool(
     help='Transport to run the MCP server on. One of "stdio", "sse", "streamable-http".',
 )
 @click.option("--api-key", required=False, type=str, help="API key for LlamaCloud")
+@click.option("--port", required=False, type=int, help="Port to run the server on (for sse/streamable-http transports)")
 def main(
     indexes: Optional[list[str]],
     extract_agents: Optional[list[str]],
@@ -90,6 +91,7 @@ def main(
     org_id: Optional[str],
     transport: str,
     api_key: Optional[str],
+    port: Optional[int],
 ) -> None:
     api_key = api_key or os.getenv("LLAMA_CLOUD_API_KEY")
     if not api_key:
@@ -131,7 +133,15 @@ def main(
         tool_func = make_extract_tool(name, project_id, org_id)
         mcp.tool(name=f"extract_{name}", description=description)(tool_func)
 
-    mcp.run(transport=transport)
+    # Get port from parameter or environment variable
+    if port is None and transport in ["sse", "streamable-http"]:
+        port = int(os.getenv("PORT", "8000"))
+
+    # Run the server with appropriate parameters
+    if transport in ["sse", "streamable-http"] and port:
+        mcp.run(transport=transport, port=port)
+    else:
+        mcp.run(transport=transport)
 
 
 if __name__ == "__main__":

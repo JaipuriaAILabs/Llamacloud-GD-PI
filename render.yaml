@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: llamacloud-mcp-server
+    runtime: python
+    plan: starter
+    buildCommand: pip install -e .
+    startCommand: python start_server.py
+    envVars:
+      - key: LLAMA_CLOUD_API_KEY
+        sync: false
+      - key: INDEX_NAME
+        value: AI-Strategy-Studies
+      - key: INDEX_DESCRIPTION
+        value: Search and retrieve information from AI Strategy Studies
+      - key: PROJECT_NAME
+        value: Default
+      - key: ORG_ID
+        value: 8d27cdab-b252-4a9b-a2c4-8eded34632a3
+      - key: TRANSPORT
+        value: streamable-http
+      - key: PYTHON_VERSION
+        value: 3.10

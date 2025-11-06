@@ -1,0 +1,6 @@
+llama-index-indices-managed-llama-cloud>=0.6.9
+mcp[cli]>=1.6.0
+python-dotenv>=1.1.0
+llama-index-tools-mcp>=0.1.0
+llama-cloud-services
+click
