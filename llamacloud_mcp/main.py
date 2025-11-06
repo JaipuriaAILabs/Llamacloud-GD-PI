@@ -7,7 +7,8 @@ from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
 from typing import Awaitable, Callable, Optional
 
 
-mcp = FastMCP("llama-index-server")
+# MCP instance will be created in main() with proper port configuration
+mcp = None
 
 
 def make_index_tool(
@@ -93,6 +94,8 @@ def main(
     api_key: Optional[str],
     port: Optional[int],
 ) -> None:
+    global mcp
+
     api_key = api_key or os.getenv("LLAMA_CLOUD_API_KEY")
     if not api_key:
         raise click.BadParameter(
@@ -100,6 +103,16 @@ def main(
         )
     else:
         os.environ["LLAMA_CLOUD_API_KEY"] = api_key
+
+    # Get port from parameter or environment variable
+    if port is None and transport in ["sse", "streamable-http"]:
+        port = int(os.getenv("PORT", "8000"))
+
+    # Initialize FastMCP with port if needed
+    if transport in ["sse", "streamable-http"] and port:
+        mcp = FastMCP("llama-index-server", port=port)
+    else:
+        mcp = FastMCP("llama-index-server")
 
     # Parse indexes into (name, description) tuples
     index_info = []
@@ -133,15 +146,8 @@ def main(
         tool_func = make_extract_tool(name, project_id, org_id)
         mcp.tool(name=f"extract_{name}", description=description)(tool_func)
 
-    # Get port from parameter or environment variable
-    if port is None and transport in ["sse", "streamable-http"]:
-        port = int(os.getenv("PORT", "8000"))
-
-    # Run the server with appropriate parameters
-    if transport in ["sse", "streamable-http"] and port:
-        mcp.run(transport=transport, port=port)
-    else:
-        mcp.run(transport=transport)
+    # Run the server (port is already configured in FastMCP constructor)
+    mcp.run(transport=transport)
 
 
 if __name__ == "__main__":
