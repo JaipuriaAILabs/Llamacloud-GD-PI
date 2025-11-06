@@ -3,7 +3,7 @@ services:
     name: llamacloud-mcp-server
     runtime: python
     plan: starter
-    buildCommand: pip install -e .
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt && pip install .
     startCommand: python start_server.py
     envVars:
       - key: LLAMA_CLOUD_API_KEY
@@ -18,5 +18,3 @@ services:
         value: 8d27cdab-b252-4a9b-a2c4-8eded34632a3
       - key: TRANSPORT
         value: streamable-http
-      - key: PYTHON_VERSION
-        value: 3.10
