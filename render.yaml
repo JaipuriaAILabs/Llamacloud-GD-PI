@@ -18,3 +18,10 @@ services:
         value: 8d27cdab-b252-4a9b-a2c4-8eded34632a3
       - key: TRANSPORT
         value: streamable-http
+      # Supabase Authentication (optional - leave empty to disable auth)
+      - key: SUPABASE_URL
+        sync: false  # Set in Render dashboard: https://YOUR_PROJECT.supabase.co
+      - key: ALLOWED_EMAILS
+        sync: false  # Set in Render dashboard: email1@example.com,email2@example.com
+      - key: SUPABASE_JWT_SECRET
+        sync: false  # Optional: JWT secret for HS256 (leave empty for RS256/JWKS)

@@ -6,15 +6,68 @@ from llama_cloud_services import LlamaExtract
 from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
 from typing import Awaitable, Callable, Optional
 
+from .auth import EmailWhitelistAuth, get_auth_from_env
+
 
 # MCP instance will be created in main() with proper port configuration
 mcp = None
+# Global auth instance
+auth: Optional[EmailWhitelistAuth] = None
+
+
+async def verify_request_auth(ctx: Context) -> Optional[str]:
+    """
+    Verify authentication for a request.
+
+    Returns error message if auth fails, None if auth succeeds or is disabled.
+    """
+    global auth
+    if auth is None:
+        # Auth not configured, allow all requests
+        return None
+
+    # Try to get token from context metadata
+    # The token should be passed via the Authorization header
+    try:
+        # Access request info from context if available
+        request_context = getattr(ctx, 'request_context', None)
+        if request_context:
+            headers = getattr(request_context, 'headers', {})
+            auth_header = headers.get('authorization', headers.get('Authorization', ''))
+        else:
+            # Fallback: check environment for token (useful for testing)
+            auth_header = os.getenv('MCP_AUTH_TOKEN', '')
+
+        if not auth_header:
+            return "Authentication required. Please provide a valid Bearer token."
+
+        # Extract token from "Bearer <token>" format
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:]
+        else:
+            token = auth_header
+
+        # Verify the token
+        user = auth.verify_token(token)
+        if user is None:
+            return "Access denied. Your email is not authorized to use this service."
+
+        await ctx.info(f"Authenticated user: {user.email}")
+        return None
+
+    except Exception as e:
+        return f"Authentication error: {str(e)}"
 
 
 def make_index_tool(
     index_name: str, project_name: Optional[str], org_id: Optional[str]
 ) -> Callable[[Context, str], Awaitable[str]]:
     async def tool(ctx: Context, query: str) -> str:
+        # Verify authentication
+        auth_error = await verify_request_auth(ctx)
+        if auth_error:
+            return auth_error
+
         try:
             await ctx.info(f"Querying index: {index_name} with query: {query}")
             index = LlamaCloudIndex(
@@ -36,6 +89,11 @@ def make_extract_tool(
 ) -> Callable[[Context, str], Awaitable[str]]:
     async def tool(ctx: Context, file_path: str) -> str:
         """Extract data using a LlamaExtract Agent from the given file."""
+        # Verify authentication
+        auth_error = await verify_request_auth(ctx)
+        if auth_error:
+            return auth_error
+
         try:
             await ctx.info(
                 f"Extracting data using agent: {agent_name} with file path: {file_path}"
@@ -94,7 +152,7 @@ def main(
     api_key: Optional[str],
     port: Optional[int],
 ) -> None:
-    global mcp
+    global mcp, auth
 
     api_key = api_key or os.getenv("LLAMA_CLOUD_API_KEY")
     if not api_key:
@@ -103,6 +161,13 @@ def main(
         )
     else:
         os.environ["LLAMA_CLOUD_API_KEY"] = api_key
+
+    # Initialize authentication from environment variables
+    auth = get_auth_from_env()
+    if auth:
+        print(f"Authentication enabled with email whitelist")
+    else:
+        print("Authentication disabled (no SUPABASE_URL or ALLOWED_EMAILS configured)")
 
     # Get port from parameter or environment variable
     if port is None and transport in ["sse", "streamable-http"]:
